@@ -28,8 +28,7 @@ def get_mad(IZZI):
     """Calculates the free Maximum Angle of Deviation (MAD) of Kirshvink et al (1980)"""
     pca=PCA(n_components=3)
     fit=pca.fit(IZZI.loc[:,'NRM_x':'NRM_z'].values).explained_variance_
-    MAD=np.degrees(np.arctan(np.sqrt((fit[2]+fit[1])/(fit[0]))))
-    return MAD
+    return np.degrees(np.arctan(np.sqrt((fit[2]+fit[1])/(fit[0]))))
 
 def TaubinSVD(x,y):
     """
@@ -64,9 +63,11 @@ def TaubinSVD(x,y):
     A = np.concatenate([A, [(-1. * Zmean * A[0])]], axis=0)
     a, b = (-1 * A[1:3]) / A[0] / 2 + centroid
     r = np.sqrt(A[1]*A[1]+A[2]*A[2]-4*A[0]*A[3])/abs(A[0])/2
-    errors=[]
-    for i in list(range(0,len(Xprime)-1)):
-        errors.append((np.sqrt((Xprime[i]-a)**2+(Yprime[i]-b)**2)-r)**2)
+    errors = [
+        (np.sqrt((Xprime[i] - a) ** 2 + (Yprime[i] - b) ** 2) - r) ** 2
+        for i in list(range(len(Xprime) - 1))
+    ]
+
     sigma=np.sqrt((sum(errors))/(len(Xprime)-1))
 
 
@@ -84,8 +85,7 @@ def get_drat(IZZI,IZZI_trunc,P):
     xprime=0.5*(IZZI_trunc.PTRM+(IZZI_trunc.NRM-line['intercept'])/line['slope'])
     yprime=0.5*(IZZI_trunc.NRM+line['slope']*IZZI_trunc.PTRM+line['intercept'])
     scalefactor=np.sqrt((min(xprime)-max(xprime))**2+(min(yprime)-max(yprime))**2)
-    absdiff=max(np.abs(P.PTRM.values-IZZI_reduced.PTRM.values)/scalefactor)*100
-    return(absdiff)
+    return max(np.abs(P.PTRM.values-IZZI_reduced.PTRM.values)/scalefactor)*100
 
 def calculate_anisotropy_correction(IZZI):
     """Calculates anisotropy correction factor for a
@@ -93,9 +93,7 @@ def calculate_anisotropy_correction(IZZI):
 
     #Convert the s tensor into a numpy array
     strlist=IZZI['s_tensor'].iloc[0].split(':')
-    slist=[]
-    for stringo in strlist:
-        slist.append(float(stringo.strip()))
+    slist = [float(stringo.strip()) for stringo in strlist]
     stensor=np.array([[slist[0],slist[3],slist[5]],[slist[3],slist[1],slist[4]],[slist[5],slist[4],slist[2]]])
 
     #Fit a PCA to the IZZI directions
@@ -110,8 +108,7 @@ def calculate_anisotropy_correction(IZZI):
     ancvector=ancvector/np.sqrt(np.sum(ancvector**2))
     labmag=np.matmul(stensor,np.array([0,0,-1]))
     ancmag=np.matmul(stensor,ancvector)
-    c=np.sqrt(np.sum(labmag**2))/np.sqrt(np.sum(ancmag**2))
-    return(c)
+    return np.sqrt(np.sum(labmag**2))/np.sqrt(np.sum(ancmag**2))
 
 def calculate_NLT_correction(IZZI,c):
     """Calculates the correction for non linear TRM for a paleointensity interpretation, given the anisotropy and cooling rate corrections"""
@@ -120,8 +117,9 @@ def calculate_NLT_correction(IZZI,c):
     beta=IZZI['NLT_beta'].iloc[0]
     correction=c*IZZI.correction.iloc[0]
     B_lab=IZZI.B_lab.iloc[0]*1e6
-    total_correction=(np.arctanh(correction*np.abs(b)*np.tanh(beta*B_lab)))/(np.abs(b)*beta*B_lab)
-    return(total_correction)
+    return (np.arctanh(correction * np.abs(b) * np.tanh(beta * B_lab))) / (
+        np.abs(b) * beta * B_lab
+    )
 
 def prep_data_for_fitting(IZZI_filtered,IZZI_original):
     """Returns the needed data for a paleointensity interpretation to perform the BiCEP method (Cych et al, in prep.), calculates all corrections for a specimen"""
@@ -176,11 +174,7 @@ def prep_data_for_fitting(IZZI_filtered,IZZI_original):
     dist_to_edge=abs(np.sqrt(x_c**2+y_c**2)-R) #Calculate D (dist_to_edge)
     phi=np.radians(np.degrees(np.arctan(y_c/x_c))%180)
     #Calculate (and ensure the sign of) k
-    if y_c<0:
-        k=-1/R
-    else:
-        k=1/R
-
+    k = -1/R if y_c<0 else 1/R
     B_lab=IZZI_filtered.B_lab.unique()[0]*1e6
 
     return(scale,minPTRM,minNRM,PTRMmax,k,phi,dist_to_edge,sigma,PTRMS,NRMS,B_lab,methcodes,extracolumnsdict)
@@ -213,7 +207,7 @@ def BiCEP_fit(specimenlist,temperatures=None,n_samples=30000,priorstd=20,model=N
             i=0
         spec_old=specimen
         IZZI_original=temps[(temps.specimen==specimen)&((temps.steptype=='IZ')|(temps.steptype=="ZI"))]
-        if temperatures==None:
+        if temperatures is None:
             IZZI_filtered=IZZI_original
         else:
             IZZI_filtered=IZZI_original[(IZZI_original.temp_step>=temperatures[specimen][i,0])&(IZZI_original.temp_step<=temperatures[specimen][i,1])]
@@ -247,7 +241,7 @@ def BiCEP_fit(specimenlist,temperatures=None,n_samples=30000,priorstd=20,model=N
         dmaxlist.append(dmax)
         PTRMmaxlist.append(PTRMmax)
         centroidlist.append(centroid)
-    if model==None:
+    if model is None:
         if len(specimenlist)<7:
             model_circle=model_circle_slow
         else:
@@ -331,10 +325,8 @@ def sortarai(datablock, s, Zdiff, **kwargs):
     for k in range(len(datablock)):
         rec = datablock[k]
         temp = float(rec[temp_key])
-        methcodes = []
         tmp = rec[meth_key].split(":")
-        for meth in tmp:
-            methcodes.append(meth.strip())
+        methcodes = [meth.strip() for meth in tmp]
         if 'LT-T-I' in methcodes and 'LP-TRM' not in methcodes and 'LP-PI-TRM' in methcodes:
             Treat_I.append(temp)
             ISteps.append(k)
@@ -363,52 +355,48 @@ def sortarai(datablock, s, Zdiff, **kwargs):
             dec = float(rec[dec_key])
             inc = float(rec[inc_key])
             str = float(rec[momkey])
-            if csd_key not in rec.keys():
+            if (
+                csd_key not in rec.keys()
+                or csd_key in rec.keys()
+                and rec[csd_key] is None
+            ):
                 sig= np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
-            elif rec[csd_key]!=None:
-                sig = np.radians(float(rec[csd_key]))*np.sqrt(3)/np.sqrt(2)*str
             else:
-                sig= np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
+                sig = np.radians(float(rec[csd_key]))*np.sqrt(3)/np.sqrt(2)*str
             first_I.append([273, 0., 0., 0., 0., 1])
             first_Z.append([273, dec, inc, str, sig, 1])  # NRM step
     for temp in Treat_I:  # look through infield steps and find matching Z step
         if temp in Treat_Z:  # found a match
             istep = ISteps[Treat_I.index(temp)]
             irec = datablock[istep]
-            methcodes = []
             tmp = irec[meth_key].split(":")
-            for meth in tmp:
-                methcodes.append(meth.strip())
+            methcodes = [meth.strip() for meth in tmp]
             # take last record as baseline to subtract
             brec = datablock[istep - 1]
             zstep = ZSteps[Treat_Z.index(temp)]
             zrec = datablock[zstep]
     # sort out first_Z records
-            if "LP-PI-TRM-IZ" in methcodes:
-                ZI = 0
-            else:
-                ZI = 1
+            ZI = 0 if "LP-PI-TRM-IZ" in methcodes else 1
             dec = float(zrec[dec_key])
             inc = float(zrec[inc_key])
             str = float(zrec[momkey])
-            if csd_key not in rec.keys():
+            if (
+                csd_key not in rec.keys()
+                or csd_key in rec.keys()
+                and rec[csd_key] is None
+            ):
                 sig= np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
-            elif rec[csd_key]!=None:
+            else:
 
                 sig = np.radians(float(rec[csd_key]))*np.sqrt(3)/np.sqrt(2)*str
-            else:
-                sig= np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
             first_Z.append([temp, dec, inc, str, sig, ZI])
-
     # sort out first_I records
             idec = float(irec[dec_key])
             iinc = float(irec[inc_key])
             istr = float(irec[momkey])
             X = pmag.dir2cart([idec, iinc, istr])
             BL = pmag.dir2cart([dec, inc, str])
-            I = []
-            for c in range(3):
-                I.append((X[c] - BL[c]))
+            I = [X[c] - BL[c] for c in range(3)]
             if I[2] != 0:
                 iDir = pmag.cart2dir(I)
                 if csd_key not in rec.keys():
@@ -446,19 +434,18 @@ def sortarai(datablock, s, Zdiff, **kwargs):
         pint = float(brec[momkey])
         X = pmag.dir2cart([dec, inc, str])
         prevX = pmag.dir2cart([pdec, pinc, pint])
-        I = []
-        for c in range(3):
-            I.append(X[c] - prevX[c])
+        I = [X[c] - prevX[c] for c in range(3)]
         dir1 = pmag.cart2dir(I)
-        if csd_key not in rec.keys():
+        if (
+            csd_key not in rec.keys()
+            or csd_key in rec.keys()
+            and rec[csd_key] is None
+        ):
             sig= np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
             psig = np.radians(2)*np.sqrt(3)/np.sqrt(2)*dir1[2]
-        elif rec[csd_key]!=None:
+        else:
             sig = np.radians(float(rec[csd_key]))*np.sqrt(3)/np.sqrt(2)*str
             psig=np.radians(float(brec[csd_key]))*np.sqrt(3)/np.sqrt(2)*dir1[2]
-        else:
-            sig = np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
-            psig = np.radians(2)*np.sqrt(3)/np.sqrt(2)*dir1[2]
         psig=np.sqrt(sig**2+psig**2)
         if Zdiff == 0:
             ptrm_check.append([temp, dir1[0], dir1[1], dir1[2], sig])
@@ -477,19 +464,18 @@ def sortarai(datablock, s, Zdiff, **kwargs):
         pint = float(brec[momkey])
         X = pmag.dir2cart([dec, inc, str])
         prevX = pmag.dir2cart([pdec, pinc, pint])
-        I = []
-        for c in range(3):
-            I.append(X[c] - prevX[c])
+        I = [X[c] - prevX[c] for c in range(3)]
         dir2 = pmag.cart2dir(I)
-        if csd_key not in rec.keys():
+        if (
+            csd_key not in rec.keys()
+            or csd_key in rec.keys()
+            and rec[csd_key] is None
+        ):
             sig= np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
             psig = np.radians(2)*np.sqrt(3)/np.sqrt(2)*dir1[2]
-        elif rec[csd_key]!=None:
+        else:
             sig = np.radians(float(rec[csd_key]))*np.sqrt(3)/np.sqrt(2)*str
             psig= np.radians(float(brec[csd_key]))*np.sqrt(3)/np.sqrt(2)*dir2[2]
-        else:
-            sig = np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
-            psig = np.radians(2)*np.sqrt(3)/np.sqrt(2)*dir1[2]
         psig=np.sqrt(sig**2+psig**2)
         zptrm_check.append([temp, dir2[0], dir2[1], dir2[2],psig])
     # get pTRM tail checks together -
@@ -500,12 +486,14 @@ def sortarai(datablock, s, Zdiff, **kwargs):
         dec = float(rec[dec_key])
         inc = float(rec[inc_key])
         str = float(rec[momkey])
-        if csd_key not in rec.keys():
+        if (
+            csd_key not in rec.keys()
+            or csd_key in rec.keys()
+            and rec[csd_key] is None
+        ):
             sig= np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
-        elif rec[csd_key]!=None:
-            sig = np.radians(float(rec[csd_key]))*np.sqrt(3)/np.sqrt(2)*str
         else:
-            sig = np.radians(2)*np.sqrt(3)/np.sqrt(2)*str
+            sig = np.radians(float(rec[csd_key]))*np.sqrt(3)/np.sqrt(2)*str
         if temp in Treat_Z:
             step = ZSteps[Treat_Z.index(temp)]
             brec = datablock[step]
